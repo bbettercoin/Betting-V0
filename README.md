@@ -12,4 +12,4 @@ Join BBETTER Communities
 
 Discord: bb's discord server : https://discord.gg/gtdGJezDwy
 
-Twitter: find better on twitter : https://twitter.com/bbettercoin
+Twitter: find bb on twitter : https://twitter.com/bbettercoin
