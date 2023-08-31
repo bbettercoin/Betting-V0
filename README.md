@@ -10,6 +10,6 @@ BettingOracle_ChainLink is to connect the oracle service (ChainLink) to provide 
 
 Join BBETTER Communities
 
-Discord: better's discord server : https://discord.gg/KkKVBPMB3J
+Discord: bb's discord server : https://discord.gg/gtdGJezDwy
 
 Twitter: find better on twitter : https://twitter.com/bbettercoin
