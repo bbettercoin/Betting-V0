@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
-//BettingOracle_ChainLink v2.5
+//BettingOracle_ChainLink v3.1
 //bsc testnet
-//0x738fcdA670D1d97a6656640de080591C01ED2281 chro ac1
 //bsc mainnet
-//0x8aF71fE99f7Ef532dF44c1A157C2Bf70E60eA060 bra ac2
-//0x62F20a5Db2bf22F36EFf3Df8e504A8054648c8cA bra ac2 higher gas limit
 //ethereum mainnet
 //sepolia testnet
 
@@ -12,14 +9,16 @@ pragma solidity ^0.8.12;
 
 import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
 
-contract BettingOracle_ChainLink {
+contract BettingOracle_ChainLink_v3 {
     address public developer;
 
     AggregatorV3Interface internal priceFeed;
 
     struct ChainLink_Price_Feed_Contract_Addresses {
         uint256 id;
-        address token_address;
+        string pair_name;
+        address betting_token;
+        uint256 betting_token_decimails;
         address ENS_address;
         AggregatorV3Interface this_priceFeed;
         uint ENS_address_decimails;
@@ -27,7 +26,7 @@ contract BettingOracle_ChainLink {
     }
 
     mapping(uint256 => ChainLink_Price_Feed_Contract_Addresses)
-        public token_address_in_contract_addresses;
+        public pair_name_in_contract_addresses;
 
     uint256 public ContractAddresses_Id;
     uint256 public current_ContractAddresses_Id;
@@ -47,7 +46,7 @@ contract BettingOracle_ChainLink {
 
     //ini_timestamp_difference adjustment
     /**
-     * bsc mainnet = 300
+     * bsc mainnet = 30
      * ethereum mainnet = 300
      */
     uint _ini_timestamp_difference;
@@ -71,6 +70,40 @@ contract BettingOracle_ChainLink {
         developer = msg.sender;
         _deduction = deduction;
         _ini_timestamp_difference = ini_timestamp_difference;
+    }
+
+    /**
+     * to fetch price feed data obj
+     * parameters:
+     * pair_name: pair name of returned price feed data struct
+     */
+    function fetch_betting_token_from_ChainLink_Price_Feed_Contract_Addresses_obj(
+        string calldata pair_name
+    ) public view returns (address, uint256, bool) {
+        address betting_token;
+        uint256 betting_token_decimails;
+        bool valid;
+
+        // get token decimals
+        for (uint256 i = 0; i <= ContractAddresses_Id; i++) {
+            if (
+                keccak256(
+                    bytes(pair_name_in_contract_addresses[i].pair_name)
+                ) ==
+                keccak256(bytes(pair_name)) &&
+                pair_name_in_contract_addresses[i].valid == true
+            ) {
+                betting_token = pair_name_in_contract_addresses[i]
+                    .betting_token;
+                betting_token_decimails = pair_name_in_contract_addresses[i]
+                    .betting_token_decimails;
+                valid = pair_name_in_contract_addresses[i].valid;
+
+                break;
+            }
+        }
+
+        return (betting_token, betting_token_decimails, valid);
     }
 
     /**
@@ -106,11 +139,13 @@ contract BettingOracle_ChainLink {
     /**
      * to add ChainLink ENS address into struct ChainLink_Price_Feed_Contract_Addresses.
      * parameters:
-     * token_address:supported ERC20 token.
+     * string pair name of ens address.
      * ENS_address: https://docs.chain.link/data-feeds/price-feeds/addresses
      */
     function add_ENS_address(
-        address token_address,
+        string calldata pair_name,
+        address betting_token,
+        uint256 betting_token_decimails,
         address ENS_address
     ) public returns (uint256) {
         require(developer == msg.sender, "only developer can add ENS address!");
@@ -124,12 +159,15 @@ contract BettingOracle_ChainLink {
         uint ENS_address_decimails = this_priceFeed.decimals();
 
         ChainLink_Price_Feed_Contract_Addresses
-            storage new_ChainLink_Price_Feed_Contract_Addresses = token_address_in_contract_addresses[
+            storage new_ChainLink_Price_Feed_Contract_Addresses = pair_name_in_contract_addresses[
                 ContractAddresses_Id
             ];
         new_ChainLink_Price_Feed_Contract_Addresses.id = ContractAddresses_Id;
+        new_ChainLink_Price_Feed_Contract_Addresses.pair_name = pair_name;
         new_ChainLink_Price_Feed_Contract_Addresses
-            .token_address = token_address;
+            .betting_token = betting_token;
+        new_ChainLink_Price_Feed_Contract_Addresses
+            .betting_token_decimails = betting_token_decimails;
         new_ChainLink_Price_Feed_Contract_Addresses.ENS_address = ENS_address;
         new_ChainLink_Price_Feed_Contract_Addresses
             .this_priceFeed = this_priceFeed;
@@ -147,28 +185,34 @@ contract BettingOracle_ChainLink {
      * returns: AggregatorV3Interface object
      */
     function set_ENS_address(
-        address token_address
+        string calldata pair_name
     ) public returns (AggregatorV3Interface) {
         if (
             current_ContractAddresses_Id != 0 &&
-            token_address_in_contract_addresses[current_ContractAddresses_Id]
-                .token_address ==
-            token_address
+            keccak256(
+                bytes(
+                    pair_name_in_contract_addresses[
+                        current_ContractAddresses_Id
+                    ].pair_name
+                )
+            ) ==
+            keccak256(bytes(pair_name))
         ) {
             return
-                token_address_in_contract_addresses[
-                    current_ContractAddresses_Id
-                ].this_priceFeed;
+                pair_name_in_contract_addresses[current_ContractAddresses_Id]
+                    .this_priceFeed;
         } else {
             bool priceFeed_exist = false;
 
             for (uint256 i = 0; i <= ContractAddresses_Id; i++) {
                 if (
-                    token_address_in_contract_addresses[i].token_address ==
-                    token_address &&
-                    token_address_in_contract_addresses[i].valid == true
+                    keccak256(
+                        bytes(pair_name_in_contract_addresses[i].pair_name)
+                    ) ==
+                    keccak256(bytes(pair_name)) &&
+                    pair_name_in_contract_addresses[i].valid == true
                 ) {
-                    priceFeed = token_address_in_contract_addresses[i]
+                    priceFeed = pair_name_in_contract_addresses[i]
                         .this_priceFeed;
                     current_ContractAddresses_Id = i;
                     priceFeed_exist = true;
@@ -188,13 +232,15 @@ contract BettingOracle_ChainLink {
      * to update ChainLink ENS address in struct ChainLink_Price_Feed_Contract_Addresses.
      * parameters:
      * id: id of ChainLink_Price_Feed_Contract_Addresses
-     * token_address:supported ERC20 token in the ChainLink_Price_Feed_Contract_Addresses.
+     * pair_name:pair name of ens address in the ChainLink_Price_Feed_Contract_Addresses.
      * ENS_address: https://docs.chain.link/data-feeds/price-feeds/addresses
      * valid: valid or not for this address in the ChainLink_Price_Feed_Contract_Addresses.
      */
     function update_ENS_address(
         uint256 id,
-        address token_address,
+        string calldata pair_name,
+        address betting_token,
+        uint256 betting_token_decimails,
         address ENS_address,
         bool valid
     ) public {
@@ -209,12 +255,15 @@ contract BettingOracle_ChainLink {
 
         uint ENS_address_decimails = this_priceFeed.decimals();
 
-        token_address_in_contract_addresses[id].token_address = token_address;
-        token_address_in_contract_addresses[id].ENS_address = ENS_address;
-        token_address_in_contract_addresses[id].this_priceFeed = this_priceFeed;
-        token_address_in_contract_addresses[id]
+        pair_name_in_contract_addresses[id].pair_name = pair_name;
+        pair_name_in_contract_addresses[id].betting_token = betting_token;
+        pair_name_in_contract_addresses[id]
+            .betting_token_decimails = betting_token_decimails;
+        pair_name_in_contract_addresses[id].ENS_address = ENS_address;
+        pair_name_in_contract_addresses[id].this_priceFeed = this_priceFeed;
+        pair_name_in_contract_addresses[id]
             .ENS_address_decimails = ENS_address_decimails;
-        token_address_in_contract_addresses[id].valid = valid;
+        pair_name_in_contract_addresses[id].valid = valid;
     }
 
     /**
@@ -349,7 +398,7 @@ contract BettingOracle_ChainLink {
     /**
      * to fetch the price from ChainLink price feed of specified timeStamp
      * parameters:
-     * token_address:supported ERC20 token in the ChainLink_Price_Feed_Contract_Addresses.
+     * pair_name : pair name of ens address in the ChainLink_Price_Feed_Contract_Addresses.
      * timeStamp:preffered timestamp.
      * token_decimails:token_decimails of supported ERC20 token
      * returns:
@@ -358,11 +407,11 @@ contract BettingOracle_ChainLink {
      * uint80 timeStamp.
      */
     function fetch_closest_price_to_timestamp(
-        address token_address,
+        string calldata pair_name,
         uint timeStamp,
         uint token_decimails
     ) public returns (uint256, uint80) {
-        set_ENS_address(token_address);
+        set_ENS_address(pair_name);
 
         uint80 roundID;
         int price;
@@ -412,7 +461,7 @@ contract BettingOracle_ChainLink {
                 next_timeStamp > 0 &&
                 next_price > 0
             ) {
-                ENS_address_decimails = token_address_in_contract_addresses[
+                ENS_address_decimails = pair_name_in_contract_addresses[
                     current_ContractAddresses_Id
                 ].ENS_address_decimails;
                 found = true;
