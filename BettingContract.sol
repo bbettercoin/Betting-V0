@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
-//version 23.0
-//0x34f51DC4e03bC3F890D05F1b5516711D32dA684F
+//version 27.0
 
-//main contract for betting contract (0.033257 ETH  $55.06. USD)
-//0x03eB7Fe6801893F6006127B5248809e8CFbdd89D
+//BSC TESTNET
+//0xbc0cD78fbd74E6b5C086934FA5E88FCBEc9293E4 chro ac1
+//0x7C101F56C2A378B35F0eCCae05E2CD28fd2f2dBf chro ac1 0.8.12
+
+//BSC MAINNET
+//0x044313b29bB667e929362cA48Eef63df427ac799 brave ac2 0.8.18
 
 pragma solidity ^0.8.12;
 
@@ -278,57 +281,14 @@ contract BettingContract {
     }
 
     /**
-     * main function
-     * to create Bets
+     * private function
+     * to add bet list
      */
-    function CreateBet(
-        address token_address,
+    function _BetPlaced(
         uint256 betting_id,
         uint256 predictedPrice,
         uint256 amount
-    ) public returns (uint256) {
-        require(
-            token_address == bettings[betting_id].token,
-            "incompatible token address @ CreateBet()"
-        );
-        require(
-            betting_id > 0 && betting_id <= bettingCount,
-            "Invalid betting ID @ CreateBet()"
-        );
-        require(
-            bettings[betting_id].status == Status.Open,
-            "Betting is not open for bets @ CreateBet()"
-        );
-        require(
-            block.timestamp < bettings[betting_id].pendingTime,
-            "Betting is closed for new bets @ CreateBet()"
-        );
-        require(amount > 0, "Invalid bet amount @ CreateBet()");
-
-        (
-            uint256 bet_id_in_current_betting_id,
-            uint256 bet_id_in_all_bet_list
-        ) = bet_id_by_user(betting_id, msg.sender);
-        require(bet_id_in_all_bet_list == 0, "wrong betting id @ CreateBet()");
-        require(
-            bet_id_in_current_betting_id == 0,
-            "You already bed on this betting! @ CreateBet()"
-        );
-
-        IERC20 token = IERC20(token_address);
-        require(
-            token.balanceOf(msg.sender) >= amount,
-            "Insufficient token balance @ CreateBet()"
-        );
-        require(
-            token.approve(address(this), amount),
-            "Not approving token transfer! @ CreateBet()"
-        );
-        require(
-            token.transferFrom(msg.sender, address(this), amount),
-            "Transfer failed @ CreateBet()"
-        );
-
+    ) private returns (uint256) {
         uint256 total_fee = FeeCollector(betting_id, amount);
 
         uint256 new_bet_amount = amount - total_fee;
@@ -367,6 +327,63 @@ contract BettingContract {
         );
 
         return betCount;
+    }
+
+    /**
+     * main function
+     * to create Bets
+     */
+    function CreateBet(
+        address token_address,
+        uint256 betting_id,
+        uint256 predictedPrice,
+        uint256 amount
+    ) public payable returns (uint256) {
+        require(
+            token_address == bettings[betting_id].token,
+            "incompatible token address @ CreateBet()"
+        );
+        /*
+        require(
+            betting_id > 0 && betting_id <= bettingCount,
+            "Invalid betting ID @ CreateBet()"
+        );
+        */
+        require(
+            bettings[betting_id].status == Status.Open,
+            "Betting is not open for bets @ CreateBet()"
+        );
+        require(
+            block.timestamp < bettings[betting_id].pendingTime,
+            "Betting is closed for new bets @ CreateBet()"
+        );
+        require(amount > 0, "Invalid bet amount @ CreateBet()");
+
+        (
+            uint256 bet_id_in_current_betting_id,
+            uint256 bet_id_in_all_bet_list
+        ) = bet_id_by_user(betting_id, msg.sender);
+        require(bet_id_in_all_bet_list == 0, "wrong betting id @ CreateBet()");
+        require(
+            bet_id_in_current_betting_id == 0,
+            "You already bed on this betting! @ CreateBet()"
+        );
+
+        IERC20 token = IERC20(token_address);
+        require(
+            token.balanceOf(msg.sender) >= amount,
+            "Insufficient token balance @ CreateBet()"
+        );
+        require(
+            token.approve(address(this), amount),
+            "Not approving token transfer! @ CreateBet()"
+        );
+        require(
+            token.transferFrom(msg.sender, address(this), amount),
+            "Transfer failed @ CreateBet()"
+        );
+
+        return _BetPlaced(betting_id, predictedPrice, amount);
     }
 
     /**
@@ -539,11 +556,12 @@ contract BettingContract {
             bets[bet_id_in_all_bet_list].betting_id == _bettingId,
             "wrong betting id @ WinningClaims()"
         );
-
+        /*
         require(
             bettings[_bettingId].status == Status.Pending,
             "Betting is not pending @ WinningClaims()"
         );
+        */
 
         require(
             bettings[_bettingId].hadWinner == true,
@@ -562,11 +580,12 @@ contract BettingContract {
         uint256 winnings = bets[bet_id_in_all_bet_list].winningsAmount;
         uint256 bet_amount = bets[bet_id_in_all_bet_list].amount;
         uint256 transfer_amount = winnings + bet_amount;
-
+        /*
         require(
             transfer_amount > 0,
             "Your winning amount is zero. @ WinningClaims()"
         );
+        */
         require(
             bets[bet_id_in_all_bet_list].claimed == false,
             "You have already claimed your winnings. @ WinningClaims()"
@@ -659,8 +678,7 @@ contract BettingContract {
         );
 
         if (rebet_amount > 0) {
-            uint256 new_bet_length = CreateBet(
-                token_address,
+            uint256 new_bet_length = _BetPlaced(
                 _newbetting_bettingId,
                 predictedPrice,
                 rebet_amount
@@ -732,53 +750,6 @@ contract BettingContract {
         }
         return (bet_id_in_current_betting_id, bet_id_in_all_bet_list);
     }
-
-    /**
-     * to render all bettings
-     * parameters : uint256 pagetion = page number
-     * parameters : uint256 bettingPerPage = render how many bettings per page
-     *
-     * return Betting [] in reverse index by page
-     * return Betting [] length
-     *
-    function render_bettings(uint256 pagetion, uint256 bettingPerPage ) public view returns (Betting[] memory, uint256, bool) {
-        
-
-        uint256 currentBettingCount = 0;
-        uint256 currentBettingIndexStart = 0;
-        uint256 currentBettingIndexEnd = 0;
-        bool lastPage = true;
-
-        //to check if bettingPerPage is suffieient
-        if(bettingPerPage * pagetion < bettingCount){
-            currentBettingCount = bettingPerPage;
-            if (pagetion == 1){
-                currentBettingIndexStart = bettingCount;
-                currentBettingIndexEnd = bettingCount - bettingPerPage;
-            }else {
-                currentBettingIndexStart = (bettingCount - (bettingPerPage * (pagetion-1))) - 1;
-                currentBettingIndexEnd = bettingCount - bettingPerPage * pagetion;
-            }
-            lastPage = false;
-        }else if(bettingPerPage * pagetion < (bettingCount + bettingPerPage)){
-            currentBettingCount = bettingCount - bettingPerPage * (pagetion - 1);
-            currentBettingIndexStart = (bettingCount - (bettingPerPage * (pagetion-1))) - 1;
-            currentBettingIndexEnd = 0;
-            lastPage = true;
-        }
-        
-        Betting[] memory allBettings = new Betting[](currentBettingCount);
-
-        uint256 k = 0;
-
-        for (uint256 i = currentBettingIndexStart; i > currentBettingIndexEnd; i--) {
-            allBettings[k] = bettings[i];
-            k++;
-        }
-
-        return (allBettings, k, lastPage);
-    }
-    */
 
     /**
      * to render all bettings
@@ -943,46 +914,4 @@ contract BettingContract {
 
         return (allBets, k);
     }
-
-    /**
-     * to render supported token by valid parameter
-     * parameter:
-     * bool _valid
-     * return SupportedToken [] in reverse index
-     *
-    function render_supported_tokens_of_valid(
-        bool _valid
-    ) public view returns (SupportedToken[] memory) {
-        uint256 current_supported_tokens_length = 0;
-
-        uint _length = SupportedTokenCount;
-
-        for (uint256 i = 0; i <= _length; i++) {
-            if (supported_tokens[i].valid == _valid) {
-                current_supported_tokens_length++;
-            }
-        }
-
-        SupportedToken[] memory allSupported_tokens = new SupportedToken[](
-            current_supported_tokens_length
-        );
-
-        uint256 render_count = 0;
-        uint256 k = 0;
-
-        for (uint256 i = _length; i > 0; i--) {
-            if (supported_tokens[i].valid == _valid) {
-                allSupported_tokens[k] = supported_tokens[i];
-                render_count++;
-                k++;
-            }
-
-            if (render_count >= current_supported_tokens_length) {
-                break;
-            }
-        }
-
-        return allSupported_tokens;
-    }
-    */
 }
